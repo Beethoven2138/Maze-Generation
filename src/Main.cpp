@@ -16,74 +16,72 @@
 */
 
 #include <iostream>
-#include <SFML/graphics.hpp>
+#include <SFML/Graphics.hpp>
 #include <vector>
 #include <time.h>
 #include <stdlib.h>
 
-#define boardWidth 10
-#define boardHeight 10
+#define boardWidth 70
+#define boardHeight 50
+#define lineLength 10
+#define lineWidth 2
 
 class Node;
+
+sf::RenderWindow window(sf::VideoMode(boardWidth * lineLength, boardHeight * lineLength), "Maze");
 
 Node* nodes[boardWidth][boardHeight];
 
 Node* currentNode;
 Node* tempNode;
 
-vector<Node> stack;
+std::vector <Node*> stack;
 
 float timeTillNextMove = 0.5;
 
-Node FindUnvisitedNeighbour();
+Node* FindUnvisitedNeighbour();
 
 void RecursiveBacktracker();
 
-sf::Clock clock;
+void DrawBoard();
 
-int main(){
-
-  srand(time(NULL));
-  
-  for (int y = 0; y < boardHeight; y++)
-    {
-      for (int x = 0; x < boardWidth; x++)
-	{
-	  nodes[x][y] = new Node(x, y);
-	}
-    }
-
-  currentNode = nodes[0][0];
-
-  sf::RenderWindow window(sf::VideoMode(800, 600), "My window");
-
-  // run the program as long as the window is open
-  while (window.isOpen())
-    {
-      sf::Event event;
-      while (window.pollEvent(event))
-        {
-	  if (event.type == sf::Event::Closed)
-	    window.close();
-        }
-      
-      window.clear(sf::Color::Black);
-
-      window.display();
-    }
-  
-  return 0;
-}
+sf::Clock timer;
 
 class Node{
 private:
   int xPos, yPos;
   bool visited = false;
-  enum Side {Left, Right, Up, Down};
+  bool walls[4] =  {1,1,1,1};
+  sf::RectangleShape lines[4];
+  void InitLines(){
+    for (int i = 0; i < 4; i++)
+      {
+	lines[i].setSize(sf::Vector2f(lineWidth, lineLength));
+	lines[i].setFillColor(sf::Color::Black);
+	if(i == 0){
+	  lines[i].setRotation(90);
+	  lines[i].setPosition(xPos * lineLength, yPos * lineLength);
+	}
+	if(i == 1){
+	  lines[i].setRotation(90);
+	  lines[i].setPosition(xPos * lineLength + lineLength, yPos * lineLength);
+	}
+	if(i == 0){
+	  lines[i].setRotation(0);
+	  lines[i].setPosition(xPos * lineLength, yPos * lineLength);
+	}
+	if(i == 0){
+	  lines[i].setRotation(0);
+	  lines[i].setPosition(xPos * lineLength, yPos * lineLength + lineLength);
+	}
+      }
+  }
 public:
   Node(int xPos, int yPos){
     this->xPos = xPos;
     this->yPos = yPos;
+
+    InitLines();
   }
   
   bool IsVisited(){
@@ -94,6 +92,12 @@ public:
     this->visited = visited;
   }
 
+  bool HasWall(int wall){
+    if(walls[wall] == 1)
+      return true;
+    return false;
+  }
+  
   int GetXPos(){
     return xPos;
   }
@@ -106,7 +110,54 @@ public:
     else{
       walls[wall] = 0;
     }
+  }
+  void DrawLines(){
+    for (int i = 0; i < 4; i++)
+      {
+	if(walls[i] == 0)
+	  continue;
+	window.draw(lines[i]);
+      }
+  }
 };
+
+int main(){
+
+  window.setVerticalSyncEnabled(true);
+  
+  srand(time(NULL));
+  
+  for (int y = 0; y < boardHeight; y++)
+    {
+      for (int x = 0; x < boardWidth; x++)
+	{
+	  nodes[x][y] = new Node(x, y);
+	}
+    }
+
+    currentNode = nodes[0][0];
+
+  // run the program as long as the window is open
+  while (window.isOpen())
+    {
+      sf::Event event;
+      while (window.pollEvent(event))
+        {
+	  if (event.type == sf::Event::Closed)
+	    window.close();
+        }
+      
+      window.clear(sf::Color::White);
+
+      DrawBoard();
+
+      window.display();
+    }
+  
+  return 0;
+}
+
+
 
 void RecursiveBacktracker(){
   
@@ -114,21 +165,21 @@ void RecursiveBacktracker(){
 
   tempNode = FindUnvisitedNeighbour();
 
-  if(tempNode != NULL){
+  if(tempNode != currentNode){
     //Remove the walls
-    if(tempNode->getXPos == currentNode->getXPos + 1){//Right
+    if(tempNode->GetXPos() == currentNode->GetXPos() + 1){//Right
       currentNode->RemoveWall(1);
       tempNode->RemoveWall(0);
     }
-    if(tempNode->getXPos == currentNode->getXPos - 1){//Left
+    if(tempNode->GetXPos() == currentNode->GetXPos() - 1){//Left
       currentNode->RemoveWall(0);
       tempNode->RemoveWall(1);
     }
-    if(tempNode->getYPos == currentNode->geYPos + 1){//Up
+    if(tempNode->GetYPos() == currentNode->GetYPos() + 1){//Up
       currentNode->RemoveWall(2);
       tempNode->RemoveWall(3);
     }
-    if(tempNode->getYPos == currentNode->getYPos - 1){//Down
+    if(tempNode->GetYPos() == currentNode->GetYPos() - 1){//Down
       currentNode->RemoveWall(3);
       tempNode->RemoveWall(2);
     }
@@ -137,37 +188,45 @@ void RecursiveBacktracker(){
     currentNode->SetVisited(true);
   }
   else if(stack.size() > 0){
-    currentNode = stack.end();
+    currentNode = *(stack.end());
     stack.pop_back();
   }
 
-  if(clock >= timeTillNextMove){
+  if(timer.getElapsedTime().asSeconds() >= timeTillNextMove){
     RecursiveBacktracker();
-    clock.restart();
+    timer.restart();
   }
 }
 
-Node FindUnvisitedNeighbour(){
+Node* FindUnvisitedNeighbour(){
 
-  vector<Node> neighbours;
-
-  //TODO add a condition to make sure that it doesn't try to access a node that's outside the board
+  std::vector <Node*> neighbours;
   
   for (int y = -1; y < 1; y++)
     {
-      if(y + currentNode->getYPos() < boardHeight && y + currentNode->getYPos() >= 0){
+      if(y + currentNode->GetYPos() < boardHeight && y + currentNode->GetYPos() >= 0){
 	  for (int x = -1; x < 1; x++)
 	    {
-	      if(x + currentNode->getXPos() < boardWidth && x + currentNode->getXPos() >= 0){
-		if(abs(x - y) == 1 && !nodes[currentNode->GetXPos() + x][currentNode->getYPos() + y]->IsVisited())
-		  neighbours.push_back(nodes[currentNode->GetXPos() + x][currentNode->getYPos() + y]);
+	      if(x + currentNode->GetXPos() < boardWidth && x + currentNode->GetXPos() >= 0){
+		if(abs(x - y) == 1 && !nodes[currentNode->GetXPos() + x][currentNode->GetYPos() + y]->IsVisited())
+		  neighbours.push_back(nodes[currentNode->GetXPos() + x][currentNode->GetYPos() + y]);
 	      }
 	    }
 	}
     }
 
   if(neighbours.size() == 0)
-    return NULL;
+    return currentNode;
 
   return neighbours.at(rand() % neighbours.size());
+}
+
+void DrawBoard(){
+  for (int y = 0; y < boardHeight; y++)
+    {
+      for (int x = 0; x < boardWidth; x++)
+	{
+	  nodes[x][y]->DrawLines();
+	}
+    }
 }
