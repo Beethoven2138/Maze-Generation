@@ -1,20 +1,3 @@
-/*
-    This file is part of Maze-Generation.
-
-    Maze-Generation is free software: you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation, either version 3 of the License, or
-    (at your option) any later version.
-
-    Maze-Generation is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with Maze-Generation.  If not, see <http://www.gnu.org/licenses/>.
-*/
-
 #include <iostream>
 #include <SFML/Graphics.hpp>
 #include <vector>
@@ -37,13 +20,15 @@ Node* tempNode;
 
 std::vector <Node*> stack;
 
-float timeTillNextMove = 0.5;
+float timeTillNextMove = 0.5f;
 
 Node* FindUnvisitedNeighbour();
 
 void RecursiveBacktracker();
 
 void DrawBoard();
+
+void FreeMemory();
 
 sf::Clock timer;
 
@@ -57,7 +42,9 @@ private:
     for (int i = 0; i < 4; i++)
       {
 	lines[i].setSize(sf::Vector2f(lineWidth, lineLength));
-	lines[i].setFillColor(sf::Color::Black);
+	lines[i].setFillColor(sf::Color::White);
+	//lines[i].setPosition(0,0);
+	//lines[i].setOrigin(lineWidth/2,lineLength/2); 
 	if(i == 0){
 	  lines[i].setRotation(90);
 	  lines[i].setPosition(xPos * lineLength, yPos * lineLength);
@@ -66,11 +53,11 @@ private:
 	  lines[i].setRotation(90);
 	  lines[i].setPosition(xPos * lineLength + lineLength, yPos * lineLength);
 	}
-	if(i == 0){
+	if(i == 2){
 	  lines[i].setRotation(0);
 	  lines[i].setPosition(xPos * lineLength, yPos * lineLength);
 	}
-	if(i == 0){
+	if(i == 3){
 	  lines[i].setRotation(0);
 	  lines[i].setPosition(xPos * lineLength, yPos * lineLength + lineLength);
 	}
@@ -112,6 +99,13 @@ public:
     }
   }
   void DrawLines(){
+    if(currentNode == this){
+      for (int i = 0; i < 4; i++)
+	{
+	  lines[i].setFillColor(sf::Color::Red);
+	}
+    }
+    
     for (int i = 0; i < 4; i++)
       {
 	if(walls[i] == 0)
@@ -135,19 +129,22 @@ int main(){
 	}
     }
 
-    currentNode = nodes[0][0];
+  currentNode = nodes[0][0];
 
-  // run the program as long as the window is open
+  RecursiveBacktracker();
+    
   while (window.isOpen())
     {
       sf::Event event;
       while (window.pollEvent(event))
         {
-	  if (event.type == sf::Event::Closed)
+	  if (event.type == sf::Event::Closed){
+	    FreeMemory();
 	    window.close();
+	  }
         }
       
-      window.clear(sf::Color::White);
+      window.clear(sf::Color::Black);
 
       DrawBoard();
 
@@ -166,8 +163,10 @@ void RecursiveBacktracker(){
   tempNode = FindUnvisitedNeighbour();
 
   if(tempNode != currentNode){
+    std::cout<<"tempNode != currentNode"<<std::endl;
     //Remove the walls
     if(tempNode->GetXPos() == currentNode->GetXPos() + 1){//Right
+      std::cout<<"Right"<<std::endl;
       currentNode->RemoveWall(1);
       tempNode->RemoveWall(0);
     }
@@ -175,11 +174,13 @@ void RecursiveBacktracker(){
       currentNode->RemoveWall(0);
       tempNode->RemoveWall(1);
     }
-    if(tempNode->GetYPos() == currentNode->GetYPos() + 1){//Up
+    if(tempNode->GetYPos() == currentNode->GetYPos() - 1){//Up
+      std::cout<<"Up"<<std::endl;
       currentNode->RemoveWall(2);
       tempNode->RemoveWall(3);
     }
-    if(tempNode->GetYPos() == currentNode->GetYPos() - 1){//Down
+    if(tempNode->GetYPos() == currentNode->GetYPos() + 1){//Down
+      std::cout<<"Down"<<std::endl;
       currentNode->RemoveWall(3);
       tempNode->RemoveWall(2);
     }
@@ -187,25 +188,30 @@ void RecursiveBacktracker(){
     currentNode = tempNode;
     currentNode->SetVisited(true);
   }
-  else if(stack.size() > 0){
-    currentNode = *(stack.end());
+  else if(stack.size() > 1){
+    std::cout<<"tempNode == currentNode"<<std::endl;
+    currentNode = stack.back();
     stack.pop_back();
   }
 
-  if(timer.getElapsedTime().asSeconds() >= timeTillNextMove){
-    RecursiveBacktracker();
-    timer.restart();
+  else{
+    
+    //system("PAUSE");
   }
+
+  //system("PAUSE");
+  //RecursiveBacktracker();
+  
 }
 
 Node* FindUnvisitedNeighbour(){
 
   std::vector <Node*> neighbours;
   
-  for (int y = -1; y < 1; y++)
+  for (int y = -1; y <= 1; y++)
     {
       if(y + currentNode->GetYPos() < boardHeight && y + currentNode->GetYPos() >= 0){
-	  for (int x = -1; x < 1; x++)
+	  for (int x = -1; x <= 1; x++)
 	    {
 	      if(x + currentNode->GetXPos() < boardWidth && x + currentNode->GetXPos() >= 0){
 		if(abs(x - y) == 1 && !nodes[currentNode->GetXPos() + x][currentNode->GetYPos() + y]->IsVisited())
@@ -229,4 +235,14 @@ void DrawBoard(){
 	  nodes[x][y]->DrawLines();
 	}
     }
+}
+
+void FreeMemory(){
+  delete [] nodes;
+  nodes = NULL;
+
+  stack.clear();
+
+  currentNode = NULL;
+  tempNode = NULL;
 }
